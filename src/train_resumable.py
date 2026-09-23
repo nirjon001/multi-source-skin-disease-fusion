@@ -426,6 +426,10 @@ def main():
         start_epoch = ck.get("epoch", -1) + 1
         best_f1 = ck.get("best_f1", 0.0)
         history = ck.get("history", [])
+        hist_best = max((r.get("val_acc", 0.0) for r in history), default=0.0)
+        if hist_best > best_f1:
+            print(f"[RESUME] repairing best_f1 {best_f1:.4f} -> {hist_best:.4f} (from history)")
+            best_f1 = hist_best
         if "rng_torch" in ck:
             torch.set_rng_state(ck["rng_torch"])
             try:
@@ -480,7 +484,22 @@ def main():
         history.append(row)
         print(f"[EPOCH {epoch+1}] {row}")
 
-        # Save _last every epoch
+        if va_acc > best_f1:
+            best_f1 = va_acc
+            save_ckpt(
+                ckpt_best,
+                epoch=epoch,
+                model_state=model.state_dict(),
+                optimizer_state=optimizer.state_dict(),
+                scheduler_state=scheduler.state_dict(),
+                best_f1=best_f1,
+                history=history,
+                config=cfg,
+                profile=prof_name,
+            )
+            print(f"[BEST] new best val_acc={best_f1:.4f}")
+
+        # Save _last every epoch (after best update, so best_f1 is current)
         save_ckpt(
             ckpt_last,
             epoch=epoch,
@@ -497,21 +516,6 @@ def main():
             rng_cuda=torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None,
         )
 
-        if va_acc > best_f1:
-            best_f1 = va_acc
-            save_ckpt(
-                ckpt_best,
-                epoch=epoch,
-                model_state=model.state_dict(),
-                optimizer_state=optimizer.state_dict(),
-                scheduler_state=scheduler.state_dict(),
-                best_f1=best_f1,
-                history=history,
-                config=cfg,
-                profile=prof_name,
-            )
-            print(f"[BEST] new best val_acc={best_f1:.4f}")
-
         state_json.write_text(json.dumps({
             "run_id": run_id,
             "profile": prof_name,
@@ -522,6 +526,8 @@ def main():
 
         if args.hub == "hf" and args.hf_repo:
             maybe_upload_to_hf(args.hf_repo, ckpt_last, ckpt_last.name)
+            if ckpt_best.exists():
+                maybe_upload_to_hf(args.hf_repo, ckpt_best, ckpt_best.name)
 
         if stop_flag["stop"]:
             print("[SIGNAL] stopping after epoch")
