@@ -1,0 +1,15 @@
+﻿# Phase 1 baseline config
+# Usage: py -3.11 src/train.py --config configs/baseline.yaml
+
+data_root: F:/Downloads/skin_disease_images
+model: efficientnet_b0
+epochs: 15
+batch_size: 32
+img_size: 224
+lr: 0.001
+weight_decay: 0.0001
+seed: 42
+num_workers: 4
+run_id: phase1_baseline
+results_dir: F:/cse475_skin/results
+logs_dir: F:/cse475_skin/logs

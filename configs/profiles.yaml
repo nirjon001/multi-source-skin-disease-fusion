@@ -1,0 +1,56 @@
+# configs/profiles.yaml
+# Per-environment training profiles for CSE475 skin disease project.
+# train_resumable.py auto-detects the platform and picks the matching block.
+# Override with: --profile <name>
+
+profiles:
+
+  # --- University lab PC: Intel i7 12-14th gen / NVIDIA A4000 16GB (CUDA) ---
+  lab_a4000:
+    device: cuda
+    batch_size: 32
+    amp: true
+    num_workers: 8
+    image_size: 224
+    epochs: 15
+    # No checkpoint_dir -> uses project results/ on F:
+
+  # --- Kaggle Notebooks: free T4 / P100, 30 hr/week, 9 hr session cap ---
+  kaggle_t4:
+    device: cuda
+    batch_size: 32
+    amp: true
+    num_workers: 2
+    image_size: 224
+    epochs: 15
+    checkpoint_dir: /kaggle/working/results
+
+  # --- Google Colab free: T4, ~12 hr cap, must persist to Drive ---
+  colab_t4:
+    device: cuda
+    batch_size: 32
+    amp: true
+    num_workers: 2
+    image_size: 224
+    epochs: 15
+    checkpoint_dir: /content/drive/MyDrive/cse475/results
+
+  # --- Home PC: AMD RX580 8GB via torch-directml (no CUDA, no AMP) ---
+  home_rx580_dml:
+    device: dml
+    batch_size: 16
+    amp: false
+    num_workers: 4
+    image_size: 224
+    epochs: 15
+    checkpoint_dir: F:/cse475_skin/results
+
+  # --- Home PC: pure CPU fallback (bulletproof, slow) ---
+  home_rx580_cpu:
+    device: cpu
+    batch_size: 8
+    amp: false
+    num_workers: 4
+    image_size: 224
+    epochs: 15
+    checkpoint_dir: F:/cse475_skin/results

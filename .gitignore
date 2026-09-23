@@ -1,0 +1,29 @@
+# data + training artifacts — do not commit
+data/
+results/
+logs/
+*.pt
+*.pth
+*.ckpt
+
+# virtualenvs
+.venv/
+.venv-home/
+.venv-home-cpu/
+venv/
+
+# caches
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# editors
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# HF token cache (never commit)
+.hf_cache/

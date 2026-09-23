@@ -1,0 +1,17 @@
+# CSE475 skin disease project — shared dependencies (except torch backend)
+# Install torch separately:
+#   Lab A4000 (CUDA):   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+#   Home RX580 (DML):   pip install torch-directml
+#   Home CPU only:      pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+
+timm
+torchvision
+tqdm
+pyyaml
+numpy
+pandas
+pillow
+matplotlib
+scikit-learn
+imagehash
+huggingface_hub
