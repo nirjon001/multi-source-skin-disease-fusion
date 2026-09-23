@@ -10,7 +10,7 @@ Run on the lab PC:
 What it does:
   1. Verifies `py -3.11` and the dataset root
   2. Creates .venv + installs cu121 torch and requirements (skipped if present, or with -SkipSetup)
-  3. Runs `train_resumable.py --hub hf --resume auto --hf-repo nirjon001/cse475-skin-checkpoints`
+  3. Runs `train_resumable.py --hub hf --resume auto --hf-repo Nirob-jon/cse475-skin-checkpoints`
   4. Prints the test_acc from results/phase1_baseline.json
 
 HF note: on the lab, authenticate once with `hf auth login` (or set HF_TOKEN env var).
@@ -18,7 +18,7 @@ HF note: on the lab, authenticate once with `hf auth login` (or set HF_TOKEN env
 [CmdletBinding()]
 param(
     [string]$DataRoot = "F:/Downloads/skin_disease_images",
-    [string]$HfRepo  = "nirjon001/cse475-skin-checkpoints",
+    [string]$HfRepo  = "Nirob-jon/cse475-skin-checkpoints",
     [int]$Epochs     = 15,
     [switch]$SkipSetup,
     [switch]$ResetCheckpoint

@@ -125,7 +125,7 @@ huggingface-cli login
 Then run with:
 
 ```powershell
-py -3.11 src\train_resumable.py --config configs\baseline.yaml --data "F:/Downloads/skin_disease_images" --hub hf --hf-repo YOUR_USERNAME/cse475-skin-checkpoints --resume auto
+py -3.11 src\train_resumable.py --config configs\baseline.yaml --data "F:/Downloads/skin_disease_images" --hub hf --hf-repo Nirob-jon/cse475-skin-checkpoints --resume auto
 ```
 
 This will:

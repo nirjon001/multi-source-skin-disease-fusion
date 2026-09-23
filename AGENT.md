@@ -260,6 +260,7 @@ Every `results/*.json` must contain:
 | 2026-09-23 | Fixed 3 bugs: `data_root` key fallback in train_resumable.py, `run_id`/absolute `results_dir` in baseline.yaml | Done |
 | 2026-09-23 | Ran `audit.py --check-corrupt` -> `results/audit_starter.json` (1,706/366/367, 0 corrupt, all RGB) | Done |
 | 2026-09-23 | CPU smoke test (2 epochs) on home PC -> test_acc 0.8747, macro_f1 0.8617; artifacts deleted | Done |
+| 2026-09-23 | HF login (as Nirob-jon), public repo `Nirob-jon/cse475-skin-checkpoints` created, upload/download round-trip verified | Done |
 | — | Phase 1 baseline on lab A4000 | PENDING |
 
 ---
@@ -320,7 +321,7 @@ huggingface-cli login   # paste write-scope token
 Then run with:
 ```powershell
 py -3.11 src\train_resumable.py --config configs\baseline.yaml --data "..." \
-  --hub hf --hf-repo YOUR_USERNAME/cse475-skin-checkpoints --resume auto
+  --hub hf --hf-repo Nirob-jon/cse475-skin-checkpoints --resume auto
 ```
 On Kaggle: add `HF_TOKEN` as a notebook Secret.
 On Colab: add `HF_TOKEN` in the left key panel.

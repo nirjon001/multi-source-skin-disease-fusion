@@ -1,10 +1,12 @@
 # CSE475 — Skin Disease Classification (Portable Training Harness)
 
-East West University · CSE475 Machine Learning · Ratul (nirjon001)
+East West University · CSE475 Machine Learning · Ratul (nirjon001 / HF: Nirob-jon)
 
 Paper target: *Addressing label heterogeneity and data leakage in multi-source dermatological dataset fusion for South Asian / Bangladesh skin disease classification.*
 
 **Read `AGENT.md` before every session — it is the project memory.**
+
+HF checkpoint repo (public): `Nirob-jon/cse475-skin-checkpoints`
 
 ---
 
