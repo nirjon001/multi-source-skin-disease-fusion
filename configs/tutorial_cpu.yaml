@@ -1,0 +1,18 @@
+# configs/tutorial_cpu.yaml
+# Runs the exact same pipeline as baseline.yaml but with 1 epoch and a separate
+# run_id (tutorial_demo) so the real results/phase1_baseline.json is never
+# written by the tutorial. Used only by notebooks/tutorial_phase1.ipynb.
+# Usage: py -3.11 src/train_resumable.py --config configs/tutorial_cpu.yaml --profile home_rx580_cpu --epochs 1
+
+data_root: F:/Downloads/skin_disease_images
+model: efficientnet_b0
+epochs: 1
+batch_size: 8
+img_size: 224
+lr: 0.001
+weight_decay: 0.0001
+seed: 42
+num_workers: 2
+run_id: tutorial_demo
+results_dir: F:/cse475_skin/results
+logs_dir: F:/cse475_skin/logs

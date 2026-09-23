@@ -409,7 +409,11 @@ def main():
 
     resume_arg = args.resume
     if resume_arg == "auto":
-        resume_arg = str(ckpt_last) if ckpt_last.exists() else None
+        if ckpt_last.exists():
+            resume_arg = str(ckpt_last)
+        elif args.hub == "hf" and args.hf_repo:
+            if maybe_download_from_hf(args.hf_repo, ckpt_last.name, ckpt_last):
+                resume_arg = str(ckpt_last)
     elif resume_arg is None and args.hub == "hf" and args.hf_repo:
         if maybe_download_from_hf(args.hf_repo, ckpt_last.name, ckpt_last):
             resume_arg = str(ckpt_last)
