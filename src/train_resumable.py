@@ -349,12 +349,15 @@ def main():
     cfg_path = Path(args.config)
     if not cfg_path.is_absolute():
         cfg_path = project / args.config
-    cfg = yaml.safe_load(cfg_path.read_text()) if yaml else {}
+    def _read_yaml(p: Path):
+        return p.read_text(encoding="utf-8-sig")
+
+    cfg = yaml.safe_load(_read_yaml(cfg_path)) if yaml else {}
 
     prof_path = Path(args.profiles)
     if not prof_path.is_absolute():
         prof_path = project / args.profiles
-    profiles = yaml.safe_load(prof_path.read_text())["profiles"] if yaml else {}
+    profiles = yaml.safe_load(_read_yaml(prof_path))["profiles"] if yaml else {}
 
     prof_name, prof = pick_profile(env, profiles, args.profile)
     print(f"[PROFILE] {prof_name} -> {prof}")
