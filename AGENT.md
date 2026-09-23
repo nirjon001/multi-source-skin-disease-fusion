@@ -5,7 +5,7 @@
 **Owner:** Ratul (nirjon001)
 **Course:** CSE475 Machine Learning, East West University
 **Deliverable:** Conference-equivalent paper (target: ICCIT / ICIEV / EWU conference)
-**Last updated:** project setup complete, Phase 1 not yet started
+**Last updated:** Phase 1 prep complete (bugs fixed, audit OK, CPU smoke test passed); baseline training pending on lab A4000
 
 ---
 
@@ -256,6 +256,11 @@ Every `results/*.json` must contain:
 |---|---|---|
 | setup | Created folder + AGENT.md + audit.py + train.py + baseline.yaml + README | Done |
 | — | Phase 1 baseline on lab A4000 | PENDING |
+| 2026-09-23 | Repo created + first commit, pushed to GitHub (now `multi-source-skin-disease-fusion`, branch master) | Done |
+| 2026-09-23 | Fixed 3 bugs: `data_root` key fallback in train_resumable.py, `run_id`/absolute `results_dir` in baseline.yaml | Done |
+| 2026-09-23 | Ran `audit.py --check-corrupt` -> `results/audit_starter.json` (1,706/366/367, 0 corrupt, all RGB) | Done |
+| 2026-09-23 | CPU smoke test (2 epochs) on home PC -> test_acc 0.8747, macro_f1 0.8617; artifacts deleted | Done |
+| — | Phase 1 baseline on lab A4000 | PENDING |
 
 ---
 
@@ -352,3 +357,4 @@ They likely: trained from scratch, used high resolution (384/512/1024px), used a
 |---|---|---|---|
 | setup | — | Project folder created, AGENT.md/README/train.py/audit.py written | Phase 1 not started |
 | — | — | Portable training harness added (train_resumable.py, profiles.yaml, SETUP_HOME.md, this section) | Phase 1 not started |
+| 2026-09-23 | Home | GitHub repo created (`multi-source-skin-disease-fusion`, master), fixes to baseline.yaml + train_resumable.py, audit run, CPU smoke test (test_acc 0.8747 @ 2 ep) | Phase 1 prep done, lab run pending |
