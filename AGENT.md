@@ -50,10 +50,10 @@ Never use the RX580 for PyTorch CUDA training — it will not work and will wast
 | GPU | **NVIDIA A4000, 16GB VRAM, CUDA** |
 | RAM | 16GB |
 
-All `train.py` runs happen on the lab A4000.
+All `train_resumable.py` runs happen on the lab A4000.
 
 ### Fallback if lab access is unavailable
-Kaggle Notebooks (free T4 / P100, ~30 hrs/week) or Google Colab free tier. Upload the dataset as a Kaggle Dataset and run the same `train.py` logic in a notebook. Code stays identical.
+Kaggle Notebooks (free T4 / P100, ~30 hrs/week) or Google Colab free tier. Upload the dataset as a Kaggle Dataset and run the same `train_resumable.py` logic in a notebook. Code stays identical.
 
 ---
 
@@ -142,7 +142,7 @@ F:\cse475_skin\
     baseline.yaml       <- Phase 1 config
   src\
     audit.py            <- inspect ImageFolder dataset
-    train.py            <- train + save results JSON
+    train_resumable.py  <- portable trainer (auto-detect + resume + HF sync)
     harmonize.py        <- (Phase 2) label mapping
     dedupe.py           <- (Phase 2) imagehash dedupe
   data\                 <- working copies (gitignored)
@@ -160,7 +160,7 @@ F:\cse475_skin\
 
 - [ ] Lab PC: create venv, install torch/timm (Section 4)
 - [ ] Run `py -3.11 src\audit.py --data "F:/Downloads/skin_disease_images" --check-corrupt --out results\audit_starter.json`
-- [ ] Run `py -3.11 src\train.py --config configs\baseline.yaml`
+- [ ] Run `py -3.11 src\train_resumable.py --config configs\baseline.yaml --data "F:/Downloads/skin_disease_images"`
 - [ ] Confirm `results\phase1_baseline.json` has `test_acc`
 
 Model: `efficientnet_b0` (timm, ImageNet pretrained)
@@ -231,7 +231,7 @@ Every `results/*.json` must contain:
 
 ## 11. Reproducibility Checklist
 
-- [ ] `seed_everything(42)` at top of `train.py`
+- [ ] `seed_everything(42)` at top of `train_resumable.py`
 - [ ] `cudnn.deterministic = True`
 - [ ] Versions pinned in `requirements.txt`
 - [ ] Git commit hash in results JSON
@@ -261,6 +261,7 @@ Every `results/*.json` must contain:
 | 2026-09-23 | Ran `audit.py --check-corrupt` -> `results/audit_starter.json` (1,706/366/367, 0 corrupt, all RGB) | Done |
 | 2026-09-23 | CPU smoke test (2 epochs) on home PC -> test_acc 0.8747, macro_f1 0.8617; artifacts deleted | Done |
 | 2026-09-23 | HF login (as Nirob-jon), public repo `Nirob-jon/cse475-skin-checkpoints` created, upload/download round-trip verified | Done |
+| 2026-09-23 | Deleted unused `src/train.py`; added `docs/FILE_MAP.md`; fixed stale `train.py` refs in AGENT/README/configs/tutorial | Done |
 | — | Phase 1 baseline on lab A4000 | PENDING |
 
 ---

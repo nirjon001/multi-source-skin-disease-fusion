@@ -35,7 +35,6 @@ F:\cse475_skin\
     profiles.yaml        <- per-platform training profiles
   src\
     audit.py             <- inspect ImageFolder dataset
-    train.py             <- legacy trainer (fixed device)
     train_resumable.py   <- PORTABLE trainer (auto-detect + resume + HF sync)
   data\                  <- working copies (gitignored)
   results\               <- checkpoints + results JSON (gitignored)
