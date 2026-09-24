@@ -110,7 +110,7 @@ All under `F:\Downloads\` unless noted.
 | Split | Images | Notes |
 |---|---|---|
 | train | 14,314 | after 8% per-class holdout to validation |
-| validation | 1,243 | created 2026-09-24 (seed 42, 8%/class) for best-checkpoint selection |
+| validation | 1,120 | 8%/class seed 42, **dedupe-clean vs train** (removed 124 DermNet internal dups) |
 | test | 4,002 | untouched in-domain test split |
 
 ### Starter dataset class counts (verified)
@@ -271,7 +271,7 @@ Every `results/*.json` (trainer output) must contain:
 | 2026-09-24 | `src/dedupe.py` + `results/dedupe_report_dermnet_sdb.json`: **0 cross-dataset pairs**, 865 DermNet-internal, 157 SDB-internal (dry-run) | Done |
 | 2026-09-24 | `src/eval_cross.py` + `configs/phase2_eval.yaml` + `configs/phase2_dermnet.yaml`; CPU smoke test passed | Done |
 | 2026-09-24 | `src/gradcam_gallery.py` — Grad-CAM image inspection gallery; smoke + phase-1 test-set run (acc 0.9428 with _best.pt) | Done |
-| 2026-09-24 | Fixed phase2_dermnet.yaml data_root (parent dir); created DermNet `validation/` split (8%/class, 1,243 imgs, seed 42) | Done |
+| 2026-09-24 | Fixed phase2_dermnet.yaml data_root (parent dir); created DermNet `validation/` split; removed 124 DermNet-internal dups so train↔val is CLEAN (0 cross-split pairs) | Done |
 | 2026-09-24 | Committed + pushed Phase 2 pipeline (eval_cross, dedupe, gradcam_gallery, configs, docs) `e3febe4` | Done |
 | — | Phase 2 DermNet 23-class training (RX580 or A4000) | PENDING |
 | — | `src/eval_cross.py` full run → results table | PENDING |

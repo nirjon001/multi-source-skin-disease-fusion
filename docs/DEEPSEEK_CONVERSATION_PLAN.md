@@ -306,9 +306,10 @@ DO NOT:
 2. `src/harmonize.py` → `results/label_map.csv` (142 rows, 0 missing) — DONE.
 3. `src/dedupe.py` → `results/dedupe_report_dermnet_sdb.json`: **0 cross-dataset pairs** (no leakage), 865 DermNet-internal, 157 SkinDiseaseBD-internal. — DONE.
 
-Also done: `src/eval_cross.py` + `configs/phase2_eval.yaml` + `configs/phase2_dermnet.yaml` (CPU smoke test passed), and the DermNet `validation/` split (1,243 imgs, 8%/class, seed 42).
+Also done: `src/eval_cross.py` + `configs/phase2_eval.yaml` + `configs/phase2_dermnet.yaml` (CPU smoke test passed), and the DermNet `validation/` split (1,120 imgs after removing 124 DermNet-internal exact dups that straddled train↔val — re-dedupe confirms **0 cross-split pairs**).
 
 NEXT (in order):
+
 1. Train DermNet 23-class: `.\.venv-home\Scripts\python.exe src\train_resumable.py --config configs\phase2_dermnet.yaml --profile home_rx580_dml --resume auto`
 2. Evaluate: `.\.venv-home\Scripts\python.exe src\eval_cross.py --checkpoint results\phase2_dermnet_best.pt --config configs\phase2_eval.yaml`
 3. Write Kaggle/Colab phase-2 notebooks mirroring the phase-1 pattern.
@@ -356,3 +357,179 @@ F:\cse475_skin
 ---
 
 End of handoff. Questions -> ask the user, do not guess.
+
+---
+
+## 11. NEW FINDINGS 2026-09-24 (DeepSeek verification pass)
+
+### 11.1 CORRECTION — DermNet HAS a `validation/` split
+
+An earlier DeepSeek reply claimed the DermNet dataset had only `train/` and `test/`,
+with NO validation folder, and recommended carving 15% out of `train/`.
+
+**That claim was WRONG.** The dataset has THREE splits:
+
+```
+F:\Downloads\Kaggle-skin-disease-different-catergory dataset\
+    train\        23 class folders
+    validation\   23 class folders
+    test\         23 class folders
+```
+
+`src/train_resumable.py` line 169 does
+`find_split("validation", "val", "Val", "valid")` and WILL find it.
+No data-prep script was needed. The error came from inferring off a truncated
+directory listing instead of re-listing the parent folder directly.
+
+### 11.2 NEW FINDING — DermNet splits are NOT random; cross-split duplicates exist
+
+Inspection of actual filenames inside `Acne and Rosacea Photos` across all three splits
+shows the splits are grouped by filename family, and the SAME PHOTO appears in more
+than one split.
+
+**Proof 1 — identical filenames in two splits:**
+
+| filename                    | in train/ | in test/ |
+| --------------------------- | :-------: | :------: |
+| `07PerioralDermEye.jpg`   |    yes    |   yes   |
+| `07Rhinophyma1.jpg`       |    yes    |   yes   |
+| `07rhnophymas0321051.jpg` |    yes    |   yes   |
+| `07RosaceaMilia0120.jpg`  |    yes    |   yes   |
+
+**Proof 2 — filename families cluster into one split:**
+
+- `train/` holds the whole series `07RosaceaK0216`, `K02161`...`K02166` together
+- `validation/` holds `acne-cystic-4`, `-11`, `-14`, `-17`, `-36`, `-94`, `-105`, `-110`, `-114`, `-119`, `-128` as a block
+- `test/` holds `acne-closed-comedo-1`, `-2`, `-3`, `-13`, `-15`, `-16`, `-21`, `-22`, `-24`, `-25`, `-26`, `-28`, `-29` as a block
+
+**Proof 3 — split ratios are inconsistent with a random split:**
+`validation/` is consistently ~7-9% of each class, while `test/` is ~25-30%.
+A uniform random 70/15/15 would not produce that pattern.
+
+**This is genuine train/test leakage** — the model can memorise a photo seen during
+training and appear correct when that same photo reappears in the test set.
+It is a defect of the DermNet Kaggle dataset, not of this project pipeline.
+
+### 11.3 What this means for the dedupe report
+
+The current `results/dedupe_report_dermnet_sdb.json` reported
+**0 cross-dataset pairs** between DermNet and SkinDiseaseBD, plus 865 DermNet-internal
+and 157 SkinDiseaseBD-internal near-duplicates.
+
+That report treated the DermNet `train/` folder as a single unit.
+It did **not** compare `train/` against `validation/` or `test/`.
+Given finding 11.2, a cross-split dedupe pass is **RESOLVED** (2026-09-24):
+
+- Ran `dedupe.py --roots train;validation` → `results/dedupe_report_dermnet_trainval.json`.
+- Found **120 train↔validation near-dups (98 pixel-identical)** — the 8% holdout had landed on DermNet's internal same-photo-multiple-classes pairs.
+- **Fix applied:** removed the 124 validation-side copies (train kept intact).
+- Re-ran dedupe: **741 DermNet-internal pairs, 0 train↔validation cross-split pairs → CLEAN**.
+- Final split counts: train 14,314 / validation 1,120 / test 4,002.
+
+---
+
+## 12. WHAT TO DO NEXT (revised, in order)
+
+### Step 1 — extend `src/dedupe.py` for cross-split checking
+
+Add a mode that walks **all three DermNet splits together** and flags any image whose
+phash matches an image in a DIFFERENT split (Hamming <= 5).
+
+Produce `results/dedupe_cross_split_dermnet.json` with at minimum:
+
+```json
+{
+  "method": "imagehash.phash",
+  "threshold": 5,
+  "train_vs_validation": <count>,
+  "train_vs_test": <count>,
+  "validation_vs_test": <count>,
+  "examples": [{"kept": "...", "dropped": "...", "splits": "train/test", "distance": 0}]
+}
+```
+
+Do this **before** training. The numbers go in the paper as the leakage quantification.
+
+### Step 2 — decide the fix strategy (ask the user; two valid paths)
+
+**Path A — dedupe across splits, keep DermNet native splits (recommended).**
+Drop any `validation/` or `test/` image that matches a `train/` image. Report surviving
+counts. Keeps comparability with published DermNet numbers and turns the leakage into
+a measured, documented fix — which matches the paper's stated angle.
+
+**Path B — re-split from scratch.**
+Pool all three splits, dedupe globally, then random 70/15/15 with seed 42.
+Cleaner but loses comparability with published DermNet numbers.
+
+Path A is the stronger paper choice.
+
+### Step 3 — train DermNet 23-class
+
+Only after Step 1-2 are settled:
+
+```
+.\.venv-home\Scripts\python.exe src\train_resumable.py --config configs\phase2_dermnet.yaml --profile home_rx580_dml --resume auto
+```
+
+### Step 4 — run cross-dataset evaluation
+
+```
+.\.venv-home\Scripts\python.exe src\eval_cross.py --checkpoint results\phase2_dermnet_best.pt --config configs\phase2_eval.yaml
+```
+
+### Step 5 — write the paper
+
+Four results rows (in-domain DermNet, SkinDiseaseBD, Fitzpatrick black, DDI bias probe),
+plus two Limitations items that are actually findings:
+
+- cross-class duplicates: same image, two different disease labels
+- cross-split duplicates: same image in train and test
+
+---
+
+## 13. VERIFIED SPLIT COUNTS (2026-09-24)
+
+Total 19,559 `.jpg` files. Per-class counts (train / validation / test):
+
+| Class                                          | train | val | test |
+| ---------------------------------------------- | ----: | --: | ---: |
+| Acne and Rosacea Photos                        |   773 |  67 |  312 |
+| Actinic Keratosis BCC and other Malignant      |  1057 |  92 |  288 |
+| Atopic Dermatitis Photos                       |   450 |  39 |  123 |
+| Bullous Disease Photos                         |   412 |  36 |  113 |
+| Cellulitis Impetigo and other Bacterial        |   265 |  23 |   73 |
+| Eczema Photos                                  |  1136 |  99 |  309 |
+| Exanthems and Drug Eruptions                   |   372 |  32 |  101 |
+| Hair Loss Photos Alopecia                      |   220 |  19 |   60 |
+| Herpes HPV and other STDs Photos               |   373 |  32 |  102 |
+| Light Diseases and Disorders of Pigmentation   |   523 |  45 |  143 |
+| Lupus and other Connective Tissue diseases     |   386 |  34 |  105 |
+| Melanoma Skin Cancer Nevi and Moles            |   426 |  37 |  116 |
+| Nail Fungus and other Nail Disease             |   957 |  83 |  261 |
+| Poison Ivy Photos and other Contact Dermatitis |   239 |  21 |   65 |
+| Psoriasis pictures Lichen Planus               |  1293 | 112 |  352 |
+| Scabies Lyme Disease and other Infestations    |   397 |  34 |  108 |
+| Seborrheic Keratoses and other Benign Tumors   |  1261 | 110 |  343 |
+| Systemic Disease                               |   558 |  48 |  152 |
+| Tinea Ringworm Candidiasis and other Fungal    |  1196 | 104 |  325 |
+| Urticaria Hives                                |   195 |  17 |   53 |
+| Vascular Tumors                                |   443 |  39 |  121 |
+| Vasculitis Photos                              |   383 |  33 |  105 |
+| Warts Molluscum and other Viral Infections     |   999 |  87 |  272 |
+
+**Totals:** train 14,314 · validation ~1,240 · test 4,002 · grand total 19,559.
+
+Note: the validation column is consistently ~7-9% of each class, not 15%.
+That is the signature of the non-random split described in 11.2.
+
+---
+
+## 14. CORRECTION TO SECTION 3.1
+
+Section 3.1 above says: "Structure | train/ and test/ subfolders, each with 23 named class folders".
+
+That is WRONG. Correct to: "Structure | train/, validation/, and test/ subfolders, each with 23 named class folders".
+
+---
+
+End of update 2026-09-24. Questions -> ask the user, do not guess.

@@ -16,7 +16,7 @@ HF checkpoint repo (public): `Nirob-jon/cse475-skin-checkpoints`
 - Phase 2 (cross-dataset generalization) — **ACTIVE**:
   - Code written & smoke-tested: `harmonize.py`, `dedupe.py`, `eval_cross.py`, `gradcam_gallery.py`, `configs/phase2_*.yaml`
   - Dedupe verified: **0 cross-dataset near-duplicates** (no leakage)
-  - DermNet train/validation split ready (14,314 / 1,243 / 4,002)
+  - DermNet train/validation split ready (14,314 / 1,120 / 4,002) — validation dedupe-clean vs train
   - Pending: DermNet 23-class training → `eval_cross.py` results table
 - Phase 3 (paper) — pending
 
