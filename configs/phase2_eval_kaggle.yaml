@@ -1,0 +1,54 @@
+# Phase 2 — cross-dataset evaluation config for KAGGLE (consumed by src/eval_cross.py)
+# Same 5 test sets as phase2_eval.yaml, but paths are the /kaggle/working extract dirs.
+# The kaggle_phase2_eval.ipynb downloads + extracts the eval zips into $DATA first.
+
+run_id: phase2_dermnet
+out: results/phase2_dermnet_eval.json
+
+model: efficientnet_b0
+num_classes: 23
+image_size: 224
+batch_size: 32
+
+label_map: /kaggle/working/multi-source-skin-disease-fusion/configs/label_map.csv
+
+# Needed to reconstruct ImageFolder class order == model output order.
+dermnet_train_root: /kaggle/working/data/dermnet/train
+
+test_sets:
+
+  # 1) In-domain upper bound: DermNet's own held-out test split (23 classes)
+  #    (comes from the same DermNetPrepared.zip as training)
+  - name: dermnet_test
+    mode: folder_per_class
+    root: /kaggle/working/data/dermnet/test
+    source_dataset: dermnet
+    folders: auto
+
+  # 2) CROSS-DATASET DOMAIN SHIFT (paper headline) — SkinDiseaseBD 5 classes
+  - name: skindiseasebd
+    mode: folder_per_class
+    root: /kaggle/working/data/skindiseasebd
+    source_dataset: skindiseasebd
+    folders: [Eczema, Scabies, Tinea Ringworm, Dermatitis, Vitiligo]
+
+  # 3) Cross-dataset + dark skin — Fitzpatrick17k black subset (5 DermNet classes)
+  - name: fitzpatrick_black
+    mode: folder_per_class
+    root: /kaggle/working/data/fitzpatrick_black
+    source_dataset: fitzpatrick_black
+    folders: [acne, acne_vulgaris, eczema, dyshidrotic_eczema, allergic_contact_dermatitis]
+
+  # 4) Phase 1 hold-out images (acne/normal/rosacea) as an extra generalization row.
+  #    acne+rosacea both fold into unified "acne" (no DermNet "normal" class).
+  - name: skin_disease_images
+    mode: folder_per_class
+    root: /kaggle/working/data/skin_disease_images
+    inline_map: {acne: acne, rosacea: acne}
+    folders: [acne, rosacea]
+
+  # 5) BIAS PROBE (no per-image labels) — DDI Black vs White predicted-class gap
+  - name: ddi_bias
+    mode: subfolder_binary
+    root: /kaggle/working/data/ddi
+    groups: [Black, White]

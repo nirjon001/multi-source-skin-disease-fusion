@@ -164,6 +164,9 @@ Then evaluate the trained model on all 5 test sets:
 .\.venv-home\Scripts\python.exe src\eval_cross.py --checkpoint results\phase2_dermnet_best.pt --config configs\phase2_eval.yaml
 ```
 
+**On Kaggle:** run `notebooks/kaggle_phase2_eval.ipynb` instead — it pulls the 5 test sets from HF
+(`Nirob-jon/cse475-eval-sets` zips) + the checkpoint from HF, uses `configs/phase2_eval_kaggle.yaml`.
+
 Success = `results/phase2_dermnet_best.pt` exists, then a per-dataset eval JSON under `results/`.
 Success for Phase 1: `results/phase1_baseline.json` contains a numeric `test_acc` (it does — 0.9564).
 Kaggle run: use `notebooks/kaggle_phase2.ipynb` (HF login via `HF_TOKEN` secret, auto-internet); the run is resumable from the same HF repo.

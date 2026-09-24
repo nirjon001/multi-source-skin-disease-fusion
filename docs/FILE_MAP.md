@@ -15,6 +15,7 @@ The only file that **trains** anything is `src/train_resumable.py`. Everything e
 | `scripts/lab_phase1.ps1` | One-shot runbook on the lab A4000 | `pwsh scripts\lab_phase1.ps1` |
 | `notebooks/kaggle_phase1.ipynb` | Same trainer, running ON Kaggle | import into Kaggle, add `HF_TOKEN`, run all |
 | `notebooks/kaggle_phase2.ipynb` | **Phase 2** DermNet 23-class on Kaggle T4 (batch 32, AMP on, HF-synced) | import into Kaggle, add `HF_TOKEN` secret, run all |
+| `notebooks/kaggle_phase2_eval.ipynb` | **Phase 2 eval on Kaggle** — 5 test sets via `configs/phase2_eval_kaggle.yaml` (HF `cse475-eval-sets` zips + checkpoint) | import into Kaggle, add `HF_TOKEN`, run all |
 | `notebooks/colab_phase1.ipynb` | Same trainer, running ON Colab | import into Colab, add `HF_TOKEN`, run all |
 
 ## Read these
