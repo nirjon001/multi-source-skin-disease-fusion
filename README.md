@@ -12,12 +12,15 @@ HF checkpoint repo (public): `Nirob-jon/cse475-skin-checkpoints`
 
 ## Current state
 
-- Phase 1 (baseline) — **not started**
-- Phase 2 (add one dataset) — pending
-- Phase 3 (full fusion + bias) — pending
-- Phase 4 (paper) — pending
+- Phase 1 (baseline) — **DONE**: efficientnet_b0 on the starter dataset, **test_acc 0.9564**, macro_f1 0.9485
+- Phase 2 (cross-dataset generalization) — **ACTIVE**:
+  - Code written & smoke-tested: `harmonize.py`, `dedupe.py`, `eval_cross.py`, `gradcam_gallery.py`, `configs/phase2_*.yaml`
+  - Dedupe verified: **0 cross-dataset near-duplicates** (no leakage)
+  - DermNet train/validation split ready (14,314 / 1,243 / 4,002)
+  - Pending: DermNet 23-class training → `eval_cross.py` results table
+- Phase 3 (paper) — pending
 
-Golden rule: **do not open a second dataset until `results/phase1_baseline.json` exists with a `test_acc` value.**
+Direction: **cross-dataset generalization** (train on one dataset, measure accuracy drop on others) — not fusion (the datasets share zero labels). Details: `docs/DEEPSEEK_CONVERSATION_PLAN.md`.
 
 ---
 
@@ -31,11 +34,17 @@ F:\cse475_skin\
   requirements.txt       <- pip list
   .gitignore
   configs\
-    baseline.yaml        <- Phase 1 config
+    baseline.yaml        <- Phase 1 config (DO NOT EDIT)
     profiles.yaml        <- per-platform training profiles
+    phase2_dermnet.yaml  <- Phase 2 DermNet train config
+    phase2_eval.yaml     <- Phase 2 eval config (test-set list)
   src\
     audit.py             <- inspect ImageFolder dataset
     train_resumable.py   <- PORTABLE trainer (auto-detect + resume + HF sync)
+    harmonize.py         <- build label_map.csv (Phase 2)
+    dedupe.py            <- imagehash near-dup report (Phase 2)
+    eval_cross.py        <- eval ONE checkpoint on N test sets (Phase 2)
+    gradcam_gallery.py   <- Grad-CAM inspection gallery (mark images)
   data\                  <- working copies (gitignored)
   results\               <- checkpoints + results JSON (gitignored)
   logs\
@@ -60,8 +69,8 @@ pip install -r requirements.txt
 python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')"
 
 # audit then train
-py -3.11 src\audit.py --data "F:/Downloads/skin_disease_images" --check-corrupt --out results\audit_starter.json
-py -3.11 src\train_resumable.py --config configs\baseline.yaml --data "F:/Downloads/skin_disease_images"
+python src\audit.py --data "F:/Downloads/skin_disease_images" --check-corrupt --out results\audit_starter.json
+python src\train_resumable.py --config configs\baseline.yaml --data "F:/Downloads/skin_disease_images"
 ```
 
 ### B. On the home PC (RX580, DirectML)
@@ -74,7 +83,7 @@ py -3.11 -m venv .venv-home
 .\.venv-home\Scripts\Activate.ps1
 pip install torch-directml
 pip install timm torchvision tqdm pyyaml numpy pillow matplotlib scikit-learn imagehash huggingface_hub
-py -3.11 src\train_resumable.py --config configs\baseline.yaml --data "F:/Downloads/skin_disease_images"
+python src\train_resumable.py --config configs\baseline.yaml --data "F:/Downloads/skin_disease_images"
 ```
 
 ### C. On Kaggle / Colab
@@ -88,8 +97,10 @@ Same script. Profile auto-detection picks `kaggle_t4` or `colab_t4`; checkpoint 
 One command, four machines, one checkpoint, seamless resume:
 
 ```powershell
-py -3.11 src\train_resumable.py --config configs\baseline.yaml --data "<dataset root>" --resume auto
+python src\train_resumable.py --config configs\baseline.yaml --data "<dataset root>" --resume auto
 ```
+
+(Use your activated venv's `python` — lab `.venv` (CUDA), home `.venv-home` (DirectML) or `.venv-home-cpu` (CPU).)
 
 The script:
 1. Auto-detects platform (lab / Kaggle / Colab / home DirectML / home CPU)
@@ -98,7 +109,7 @@ The script:
 4. Handles Ctrl+C / power loss via a signal handler (never loses an epoch)
 5. Optionally syncs to Hugging Face with `--hub hf --hf-repo USER/REPO`
 
-Full details: `AGENT.md` Section 11.
+Full details: `AGENT.md` Section 14.
 
 ---
 
@@ -116,28 +127,36 @@ Full details: `AGENT.md` Section 11.
 | `--hf-repo USER/REPO` | HF model repo for checkpoints |
 | `--epochs N` | Override epoch count |
 
+Phase 2 (current) uses `configs\phase2_dermnet.yaml`, run via `.\.venv-home\Scripts\python.exe` on the home RX580.
+
 ---
 
 ## Cross-machine accuracy — short answer
 
-No meaningful drift. Save model + optimizer + scheduler + RNG; keep batch size identical across machines; use AMP on CUDA only. Expected difference is only epoch time. Full explanation in `AGENT.md` Section 11.
+No meaningful drift. Save model + optimizer + scheduler + RNG; keep batch size identical across machines; use AMP on CUDA only. Expected difference is only epoch time. Full explanation in `AGENT.md` Section 14.
 
 ---
 
 ## Environment traps (do not forget)
 
-- `python` = 3.14.5 → **no PyTorch wheels**. Always use `py -3.11`.
-- Lab venv (CUDA torch) and home venv (DirectML torch) are **separate**. Do not mix.
+- Global `python` (3.14) has no torch wheels. On home use `.\.venv-home\Scripts\python.exe` (DirectML) or `.\.venv-home-cpu\Scripts\python.exe` (CPU).
+- Lab venv (CUDA torch), home venv (DirectML torch) are **separate**. Do not mix.
 - Do not commit `data/`, `results/`, or `*.pt` (already in `.gitignore`).
+- YAML files carry a UTF-8 BOM — the trainer reads them as `utf-8-sig`. Don't strip it "by cleanup".
 
 ---
 
-## Phase 1 command (the immediate goal)
+## Phase 2 command (the active goal)
 
 ```powershell
-py -3.11 src\train_resumable.py --config configs\baseline.yaml --data "F:/Downloads/skin_disease_images"
+.\.venv-home\Scripts\python.exe src\train_resumable.py --config configs\phase2_dermnet.yaml --profile home_rx580_dml --resume auto
 ```
 
-Success = `results/phase1_baseline.json` contains a numeric `test_acc`.
+Then evaluate the trained model on all 5 test sets:
 
-Until that file exists, do not touch SkinDiseaseBD, SCIN, Fitzpatrick17k, or 32 Curated Categories.
+```powershell
+.\.venv-home\Scripts\python.exe src\eval_cross.py --checkpoint results\phase2_dermnet_best.pt --config configs\phase2_eval.yaml
+```
+
+Success = `results/phase2_dermnet_best.pt` exists, then a per-dataset eval JSON under `results/`.
+Success for Phase 1: `results/phase1_baseline.json` contains a numeric `test_acc` (it does — 0.9564).

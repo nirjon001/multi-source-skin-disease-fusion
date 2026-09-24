@@ -1,6 +1,6 @@
-# CSE475 Session Log — 2026-09-23
+# CSE475 Session Log — 2026-09-23 (+ 2026-09-24 updates)
 
-> Project: **Addressing label heterogeneity and data leakage in multi-source dermatological dataset fusion for South Asian / Bangladesh skin disease classification**
+> Project: **Cross-dataset generalization for South Asian / Bangladesh skin disease classification** (formerly "fusion" — direction changed, see `DEEPSEEK_CONVERSATION_PLAN.md`)
 > Folder: `F:\cse475_skin`
 > This file is a saved transcript/summary of the working session (exports of the chat conversation). Key results and decisions are captured inline.
 
@@ -92,11 +92,16 @@ One more blocker: `yaml.parser.ParserError: expected '<document start>' ... line
 |---|---|
 | Phase 1 baseline (`results/phase1_baseline.json`) | **DONE** — test_acc 0.9564 |
 | Golden rule | **Met** (second dataset may now be opened) |
-| Phase 2 design | Option A chosen provisionally by user; plan laid out |
-| SCIN multi-label policy | **Open question (1)** — waiting on user |
-| Phase 2 training location | **Open question (2)** — waiting on user |
-| AGENT.md Phase 1 → DONE, experiment log | Pending once Phase 2 begins |
-| Next code to write | `harmonize.py`, `dedupe.py`, fused train run, per-source eval |
+| Direction | Cross-dataset generalization (NOT fusion) — `DEEPSEEK_CONVERSATION_PLAN.md` |
+| Harmonization | **DONE** — `results/label_map.csv` (142 rows, 0 missing) |
+| Dedupe | **DONE** — 0 cross-dataset pairs; 865 DermNet / 157 SkinDiseaseBD internal |
+| eval_cross.py + configs/phase2_*.yaml | **DONE** — CPU smoke-tested |
+| DermNet validation split | **DONE** — 1,243 imgs (8%/class, seed 42) |
+| gradcam_gallery.py | **DONE** — phase-1 test split browsed (367 imgs) |
+| Phase 2 DermNet training | **PENDING** (RX580-DirectML or lab A4000) |
+| eval_cross full run | **PENDING** |
+| Phase 2 Kaggle/Colab notebooks | **PENDING** |
+| AGENT.md / docs | Updated 2026-09-24 |
 
 ---
 
@@ -110,3 +115,26 @@ One more blocker: `yaml.parser.ParserError: expected '<document start>' ... line
 | epochs | 15 |
 | test_acc | 0.9564 |
 | macro_f1 | 0.9485 |
+
+---
+
+## 7. Session 2026-09-24 — Phase 2 pipeline
+
+**Direction confirmed:** the user wanted "a model that predicts many diseases, tested on another dataset". Fusion is impossible (zero shared labels). Plan: TRAIN on DermNet 23-class, TEST on 4-5 external sets.
+
+**Completed:**
+- Extracted SkinDiseaseBD `Raw_Images.zip` → `data/SkinDiseaseBD/Updated Images` (5 classes, 1,612 imgs). Avoided the `aug_*` pre-augmented zips (they contain the same photo multiple times → leakage).
+- `src/harmonize.py` → `results/label_map.csv` (142 rows across DermNet / SkinDiseaseBD / Fitzpatrick-black / phase-1). Unified classes: eczema, scabies, tinea, dermatitis, vitiligo, acne.
+- `src/dedupe.py` (imagehash.phash, Hamming ≤ 5) → `results/dedupe_report_dermnet_sdb.json`: **0 cross-dataset pairs** = no leakage. 865 within-DermNet (benign, train-internal), 157 within-SkinDiseaseBD (test-internal incl. distance-0 exact dups from `aug_*` variants — a paper honesty note, does NOT inflate cross-split accuracy).
+- `src/eval_cross.py` — one checkpoint, five test sets, dumps one JSON. **Locked design decision:** raw 23-class argmax then map predicted→unified via label_map.csv (NOT max-logit reduction, which is degenerate for single-unified-class test sets). Supports `folder_per_class` (with inline_map or label_map.csv) and `subfolder_binary` (DDI bias probe). CPU smoke test passed: skindiseasebd n=1612, skin_disease_images n=264 (99 acne + 165 rosacea), ddi_bias Black 2155/White 2000 (mean_conf + top5 distributions).
+- `configs/phase2_dermnet.yaml` + `configs/phase2_eval.yaml` (5 test sets: dermnet_test 23-class, skindiseasebd 5-class, fitzpatrick_black 3-unified, skin_disease_images 2→acne via inline_map, ddi_bias subfolder_binary).
+- `src/gradcam_gallery.py` — Grad-CAM inspection gallery: original thumb + CAM overlay (manual Grad-CAM on timm `conv_head`, jet colormap in numpy, percentile-clipped alpha so the hotspot shows), GT vs pred + confidence, per-image marking (✓/✗/? + note) saved to browser localStorage, export/import marks JSON, filters, `file:///` open-original. Phase-1 test split run: acc 0.9428 (346/367) using `_best.pt` (slightly below the JSON's 0.9564 because that used the last-epoch checkpoint).
+- **Prepared DermNet for training:** fixed `phase2_dermnet.yaml` data_root → parent dir (trainer looks for train/ inside data_root); created `validation/` split (8%/class, seed 42, **1,243 imgs**). Verified trainer resolves train 14,314 / val 1,243 / test 4,002, 23 classes each, consistent class order.
+- Committed + pushed `e3febe4` "Add Phase 2 cross-dataset eval pipeline" (7 files).
+- Updated all Markdown docs (AGENT.md, README.md, SETUP_HOME.md, FILE_MAP.md, DEEPSEEK_CONVERSATION_PLAN.md, this file).
+
+**Pending (next session):**
+1. Train DermNet 23-class: `.\.venv-home\Scripts\python.exe src\train_resumable.py --config configs\phase2_dermnet.yaml --profile home_rx580_dml --resume auto` (~2-2.5 hr RX580; resume-safe + HF sync).
+2. Run `src/eval_cross.py --checkpoint results/phase2_dermnet_best.pt --config configs/phase2_eval.yaml` → results table.
+3. Full gallery over phase-1 train+validation+test on CPU while training runs on GPU.
+4. Phase-2 Kaggle/Colab notebooks (cloud dataset slugs TBD — DDI is Stanford-gated).

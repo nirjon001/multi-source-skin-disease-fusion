@@ -4,7 +4,7 @@
 
 run_id: phase2_dermnet
 dataset_name: dermnet_23
-data_root: F:/Downloads/Kaggle-skin-disease-different-catergory dataset/train
+data_root: F:/Downloads/Kaggle-skin-disease-different-catergory dataset
 
 model: efficientnet_b0
 epochs: 15

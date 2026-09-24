@@ -2,85 +2,79 @@
 
 **This file is the project memory. Read it before every session. Update it when facts change.**
 
-**Owner:** Ratul (nirjon001)
-**Course:** CSE475 Machine Learning, East West University
-**Deliverable:** Conference-equivalent paper (target: ICCIT / ICIEV / EWU conference)
-**Last updated:** Phase 1 prep complete (bugs fixed, audit OK, CPU smoke test passed); baseline training pending on lab A4000
-
 ---
 
 ## 1. Paper Angle (the contribution)
 
-> *Addressing label heterogeneity and data leakage in multi-source dermatological dataset fusion for South Asian / Bangladesh skin disease classification.*
+> *Cross-dataset generalization (and its limits) for South Asian / Bangladesh skin disease classification: train one model on DermNet 23-class, measure the accuracy drop on other datasets.*
 
-This is a **methodology paper**, not an architecture paper. The novelty is:
-1. Fusing multiple skin datasets with conflicting label spaces
-2. Documenting and fixing label heterogeneity
-3. Detecting and removing cross-dataset near-duplicates (leakage)
-4. Measuring the fusion gain on South Asian / Fitzpatrick IV-VI skin
+This is a **methodology / evaluation paper**, not a fusion paper. The novelty is:
+1. TRAIN one EfficientNet-B0 on DermNet (23 classes).
+2. TEST on 4-5 different datasets -> a results table showing the generalization gap.
+3. Harmonize label spaces across datasets (label_map.csv) so evaluation is meaningful.
+4. Dedupe across datasets (imagehash) to prove no train/test leakage.
+5. Measure skin-tone bias (DDI Black vs White, Fitzpatrick-black).
+
+> NOTE: "fusion" (merging datasets that share labels) was the original plan but is **NOT being done** — the datasets share zero labels. See `docs/DEEPSEEK_CONVERSATION_PLAN.md` for the full reasoning.
 
 ---
 
 ## 2. GOLDEN RULE
 
-**Do NOT open a second dataset until `results/phase1_baseline.json` exists with a `test_acc` value.**
+**Met.** `results/phase1_baseline.json` exists with `test_acc: 0.9564`. Second dataset is confirmed open.
 
-One dataset. One model. One number. Then fusion.
+Phase 2 plan (cross-dataset eval) is now the active plan.
 
 ---
 
 ## 3. Hardware (confirmed)
 
-### Home PC — do NOT train here
+### Home PC — CAN train via DirectML (proved in Phase 1)
 | Spec | Value |
 |---|---|
 | CPU | AMD Ryzen 5 5600 |
-| GPU | AMD RX580, 8GB VRAM, **no CUDA** (ROCm/DirectML only) |
+| GPU | AMD RX580, 8GB VRAM, **no CUDA** (DirectML only) |
 | RAM | 16GB |
 | OS | Windows 11 (build 10.0.26200) |
 | Hostname | NirjonPC1 |
 
-Use the home PC for: writing code, reading papers, `audit.py`, unzipping, label mapping, writing the paper.
-Never use the RX580 for PyTorch CUDA training — it will not work and will waste days.
+**Phase 1 was trained here** on the RX580 via `torch-directml` (`profile: home_rx580_dml`) — test_acc 0.9564. It works but is slow (~4-6x slower than A4000). Use the home PC for: writing code, reading papers, `audit.py`, unzipping, label mapping, dedupe, eval_cross, Grad-CAM gallery, and training when the lab is unavailable.
 
-### University Lab PC — TRAIN HERE
+### University Lab PC — PREFERRED TRAINING
 | Spec | Value |
 |---|---|
 | CPU | Intel i7 12th / 13th / 14th gen |
 | GPU | **NVIDIA A4000, 16GB VRAM, CUDA** |
 | RAM | 16GB |
 
-All `train_resumable.py` runs happen on the lab A4000.
+All `train_resumable.py` runs are interchangeable (same checkpoint, resume anywhere). Use the lab when possible; RX580 DirectML is the proven fallback.
 
 ### Fallback if lab access is unavailable
 Kaggle Notebooks (free T4 / P100, ~30 hrs/week) or Google Colab free tier. Upload the dataset as a Kaggle Dataset and run the same `train_resumable.py` logic in a notebook. Code stays identical.
 
 ---
 
-## 4. Python Environment (critical trap)
+## 4. Python Environment (critical)
 
-| Interpreter | Version | Status |
+Three venvs exist on the home PC — **use the right one, never the global Python**:
+
+| Interpreter | Version / torch | Status |
 |---|---|---|
-| `python` (default) | **3.14.5** | **DO NOT USE** — no PyTorch wheels exist |
-| `py -3.11` | **3.11.9** | **USE THIS ONE** |
+| `.\.venv-home\Scripts\python.exe` | **3.11 + torch 2.4.1 + torch-directml** | **GPU/DirectML training & gallery** |
+| `.\.venv-home-cpu\Scripts\python.exe` | **3.11 + torch CPU-only** | **CPU checks, smoke tests, gallery on CPU** |
+| `py -3.11` (global) | 3.11.9, **no torch** | only for the audit script's plain deps |
 
-Already installed on `py -3.11`: numpy, pandas, scikit-learn, pillow, matplotlib.
+Installed in both venvs: numpy, pandas, scikit-learn, pillow, matplotlib, timm, tqdm, pyyaml, imagehash, huggingface_hub.
 
-**Missing on `py -3.11` (must install once):** torch, torchvision, timm, imagehash, tqdm, pyyaml.
+The lab venv (CUDA torch) is separate — do not mix.
 
-### Setup (run once on the lab PC)
+### Home PC venv setup (one time)
 ```powershell
 cd F:\cse475_skin
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
-pip install -r requirements.txt
-```
-
-### Verify GPU
-```powershell
-python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU only')"
+py -3.11 -m venv .venv-home
+.\.venv-home\Scripts\Activate.ps1
+pip install torch-directml   # replaces normal torch
+pip install timm torchvision tqdm pyyaml numpy pillow matplotlib scikit-learn imagehash huggingface_hub
 ```
 
 ---
@@ -103,13 +97,21 @@ All under `F:\Downloads\` unless noted.
 
 | # | Dataset | Path | Classes | Images | State |
 |---|---|---|---|---|---|
-| 1 | **Starter: acne/rosacea/normal** (= HuggingFace `Neperl/skin-disease-acne-rosacea-normal`) | `F:\Downloads\skin_disease_images\` | acne, normal, rosacea | 2,439 | Extracted, pre-split |
-| 2 | SkinDiseaseBD | `F:\Downloads\SkinDiseaseBD A Dataset of Common Skin Disease Ima.zip` | 5 BD diseases | ~1,612 | **Zip, 978.7 MB, not extracted** |
-| 3 | SCIN (Google Research) | `F:\Downloads\SCIN (Google Research)\` | multi-label (CSV) | ~10,000+ PNG | Extracted, flat PNG + CSVs |
-| 4 | Fitzpatrick17k black-images | `F:\Downloads\archive\fitzpatrick-black-images\` | 16 derm classes | ~2,000 | Extracted + `Db.csv` |
-| 5 | 32 Curated Categories | `F:\Downloads\32 Curated Categories of Skin Disease Images.zip` | 32 | ? | **Zip, 1039.9 MB, not extracted** |
-| 6 | HAM10000 | — | 7 | 10,015 | **NOT FOUND on disk** |
-| 7 | DermNet | — | 23 | ~23,000 | **NOT FOUND on disk** |
+| 1 | **Starter: acne/rosacea/normal** | `F:\Downloads\skin_disease_images\` | acne, normal, rosacea | 2,439 | Phase 1 trained/evaluated |
+| 2 | **DermNet 23 (Phase 2 TRAIN + test)** | `F:\Downloads\Kaggle-skin-disease-different-catergory dataset\` | 23 | train 14,314 / val 1,243 / test 4,002 | **Phase 2 training set** |
+| 3 | SkinDiseaseBD | `F:\cse475_skin\data\SkinDiseaseBD\Updated Images\` | 5 (Dermatitis, Eczema, Scabies, Tinea, Vitiligo) | 1,612 | Extracted — **external test #2** |
+| 4 | Fitzpatrick17k black-images | `F:\Downloads\fitzpatrick-black-images-dataset\fitzpatrick-black-images\` | ~114 | ~2,000 | External test #3 (3 unified) |
+| 5 | DDI (Black/White) | `F:\Downloads\skin-disease-dataset\Disease-Dataset\` | binary st | Black 2,155 / White 2,000 | Bias probe only — **no disease labels** |
+| 6 | SCIN (Google Research) | `F:\Downloads\SCIN (Google Research)\` | multi-label (CSV) | ~10,000+ PNG | NOT used (wrong modality/policy) |
+| 7 | 32 Curated Categories | `F:\Downloads\32 Curated Categories of Skin Disease Images.zip` | 32 | ? | NOT used (dermoscopic) |
+| 8 | HAM10000 / ISIC2018 | — | 7 | 10,015 | NOT FOUND / skipped (dermoscopic) |
+
+### DermNet splits (verified, phase 2)
+| Split | Images | Notes |
+|---|---|---|
+| train | 14,314 | after 8% per-class holdout to validation |
+| validation | 1,243 | created 2026-09-24 (seed 42, 8%/class) for best-checkpoint selection |
+| test | 4,002 | untouched in-domain test split |
 
 ### Starter dataset class counts (verified)
 | Split | acne | normal | rosacea | Total |
@@ -121,13 +123,6 @@ All under `F:\Downloads\` unless noted.
 
 All images `.jpg`. Already split 70/15/15. No splitting needed.
 
-### Other SCIN files found
-- `F:\Downloads\dataset_scin_cases.csv`
-- `F:\Downloads\dataset_scin_labels.csv`
-- `F:\Downloads\dataset_scin_label_questions.csv`
-- `F:\Downloads\scin_app_questions.csv`
-- `F:\Downloads\archive\Db.csv` (Fitzpatrick labels)
-
 ---
 
 ## 7. Project Folder
@@ -137,49 +132,52 @@ F:\cse475_skin\
   AGENT.md              <- this file (project memory)
   README.md             <- quick start
   requirements.txt      <- pip list
-  .gitignore            <- blocks data/ and *.pt
+  .gitignore            <- blocks data/, results/, *.pt
   configs\
-    baseline.yaml       <- Phase 1 config
+    baseline.yaml       <- Phase 1 config (DO NOT EDIT — the Phase 1 record)
+    smoke_cpu.yaml      <- smoke test config
+    tutorial_cpu.yaml   <- tutorial config
+    profiles.yaml       <- per-platform training profiles
+    phase2_dermnet.yaml <- Phase 2 DermNet 23-class train config
+    phase2_eval.yaml    <- Phase 2 eval config (the test-set list)
   src\
     audit.py            <- inspect ImageFolder dataset
     train_resumable.py  <- portable trainer (auto-detect + resume + HF sync)
-    harmonize.py        <- (Phase 2) label mapping
-    dedupe.py           <- (Phase 2) imagehash dedupe
+    harmonize.py        <- build label_map.csv (phase 2)
+    dedupe.py           <- imagehash near-duplicate report (phase 2)
+    eval_cross.py       <- evaluate ONE checkpoint on N test sets (phase 2)
+    gradcam_gallery.py  <- Grad-CAM image inspection gallery (mark images)
   data\                 <- working copies (gitignored)
-  results\              <- one JSON per run
+  results\              <- checkpoints + JSON per run (gitignored)
   logs\
   notebooks\
+    kaggle_phase1.ipynb / colab_phase1.ipynb / tutorial_phase1.ipynb
+  docs\
+    FILE_MAP.md, DEEPSEEK_CONVERSATION_PLAN.md, CONVERSATION_2026-09-23.md
 ```
 
 ---
 
 ## 8. Phase Plan (STRICT ORDER)
 
-### Phase 1 — Baseline (Week 1-2) — NOT STARTED
-**Goal:** one training run, one accuracy number saved.
+> Direction changed from fusion to cross-dataset generalization. Phase 1 = done.
 
-- [ ] Lab PC: create venv, install torch/timm (Section 4)
-- [ ] Run `py -3.11 src\audit.py --data "F:/Downloads/skin_disease_images" --check-corrupt --out results\audit_starter.json`
-- [ ] Run `py -3.11 src\train_resumable.py --config configs\baseline.yaml --data "F:/Downloads/skin_disease_images"`
-- [ ] Confirm `results\phase1_baseline.json` has `test_acc`
+### Phase 1 — Baseline — **DONE (2026-09-23)**
+- [x] Trained `efficientnet_b0` on phase-1 dataset (home RX580, DirectML, 15 epochs)
+- [x] `results/phase1_baseline.json` — **test_acc 0.9564**, macro_f1 0.9485
+- [x] Note: actually ran on Colab then resumed on home RX580 (proved resume works)
 
-Model: `efficientnet_b0` (timm, ImageNet pretrained)
-Epochs 15 | Batch 32 | Img 224 | LR 1e-3 | AdamW | Cosine | Seed 42
-Expected runtime on A4000: ~5-8 min.
+### Phase 2 — Cross-dataset generalization (ACTIVE)
+- [x] Extract SkinDiseaseBD → `data/SkinDiseaseBD/Updated Images` (1,612 imgs, 5 classes)
+- [x] `src/harmonize.py` → `results/label_map.csv` (142 rows, DermNet+SkinDiseaseBD+Fitzpatrick+phase1)
+- [x] `src/dedupe.py` → `results/dedupe_report_dermnet_sdb.json`: **0 cross-dataset pairs** (no leakage), 865 DermNet-internal, 157 SkinDiseaseBD-internal
+- [x] `src/eval_cross.py` written + CPU smoke-tested (skindiseasebd n=1612, skin_disease_images n=264, ddi Black 2155/White 2000)
+- [x] `configs/phase2_dermnet.yaml` + `configs/phase2_eval.yaml` written; DermNet validation split created (1,243 imgs)
+- [ ] Train DermNet 23-class → `results/phase2_dermnet_best.pt`
+- [ ] Run `src/eval_cross.py` → the results table
+- [ ] Grad-CAM / inspection gallery (`src/gradcam_gallery.py`) on all phase-1 splits (test done)
 
-### Phase 2 — Add ONE dataset (Week 3)
-- [ ] Extract `SkinDiseaseBD ... .zip`
-- [ ] Write `src\harmonize.py` — label mapping CSV (`source_class | unified_class`)
-- [ ] Write `src\dedupe.py` — `imagehash.phash`, Hamming <= 5
-- [ ] Train on fused set -> `results\phase2_fused.json`
-- [ ] Compare against Phase 1
-
-### Phase 3 — Full fusion + bias (Week 4-5)
-- [ ] Add Fitzpatrick17k-black + SCIN
-- [ ] Fitzpatrick-stratified accuracy (bias measurement)
-- [ ] Grad-CAM visualizations
-
-### Phase 4 — Write paper (Week 6)
+### Phase 3 — Write paper (Week 6)
 - [ ] IEEE template, 6-8 pages
 - [ ] Submit to ICCIT / ICIEV / EWU conference
 
@@ -188,28 +186,30 @@ Expected runtime on A4000: ~5-8 min.
 ## 9. DO / DON'T
 
 **DO**
-- Always `py -3.11`, never `python`
+- Use `.\.venv-home\Scripts\python.exe` (DirectML) or `.\.venv-home-cpu\Scripts\python.exe` (CPU) on home; lab venv (CUDA) on lab — **never the global `python`**
 - Always seed 42
 - Save every run as JSON in `results/`
 - Log dataset + model + hyperparams in JSON
-- Document label mapping before any fusion
-- Run dedupe before fusion (leakage kills papers)
-- Train on lab A4000 only
+- Document label mapping before any cross-dataset eval (`results/label_map.csv`)
+- Run dedupe before any cross-dataset eval (leakage kills papers)
+- Keep `src/train_resumable.py` as the ONLY trainer
+- Train on lab A4000 when available; RX580 DirectML is the proven fallback
 
 **DON'T**
-- Don't train on all datasets at once (Phase 1 trap)
-- Don't use `python` (3.14, no torch wheels)
-- Don't train on the home RX580
-- Don't skip dedupe in Phase 2
+- Don't try "fusion" — the datasets share zero labels (see plan doc)
+- Don't modify `configs/baseline.yaml` — Phase 1 record
+- Don't use `Images_176x176_v1.zip` / `Images_512x512_v2.zip` — pre-augmented, leaks; use `Raw_Images.zip`
+- Don't skip dedupe before cross-eval
 - Don't report accuracy without a confusion matrix
 - Don't commit datasets or `.pt` checkpoints to git
-- Don't extract zips until Phase 2
+- Don't use HAM10000 / ISIC2018 / 32 Curated — dermoscopic, wrong modality
+- Don't claim SOTA. This paper measures a gap; honest numbers beat high numbers.
 
 ---
 
 ## 10. Experiment Tracking Format
 
-Every `results/*.json` must contain:
+Every `results/*.json` (trainer output) must contain:
 ```json
 {
   "run_id": "phase1_baseline",
@@ -227,55 +227,67 @@ Every `results/*.json` must contain:
 }
 ```
 
+`results/phase2_dermnet.json` follows this schema (23 classes). `eval_cross.py` produces a per-test-set JSON keyed by `test_sets.<name>` with `n`, per-class F1 / accuracy, and (DDI) per-group stats.
+
 ---
 
 ## 11. Reproducibility Checklist
 
-- [ ] `seed_everything(42)` at top of `train_resumable.py`
+- [x] `seed_everything(42)` at top of `train_resumable.py`
 - [ ] `cudnn.deterministic = True`
 - [ ] Versions pinned in `requirements.txt`
 - [ ] Git commit hash in results JSON
-- [ ] No leakage (dedupe ran before fusion)
+- [x] No leakage (dedupe ran before cross-dataset eval)
+- [x] Same batch size across machines; AMP on CUDA only
 
 ---
 
 ## 12. Paper-Writing Rules
 
-- Cite every dataset source (SkinDiseaseBD, SCIN, Fitzpatrick17k, HAM10000)
-- Include harmonization table as a paper table
-- Report dedupe stats: "removed X near-duplicates across N datasets"
-- Ablate: single-dataset vs fused
+- Cite every dataset source (DermNet, SkinDiseaseBD, Fitzpatrick17k, DDI)
+- Include harmonization table as a paper table (`results/label_map.csv`)
+- Report dedupe stats: "0 cross-dataset near-duplicates across N datasets" (no leakage)
+- Report the cross-dataset accuracy DROP (in-domain vs external) — this is the finding
+- Report DDI Black vs White top-5 distribution + mean confidence (bias probe)
 - Visualize Grad-CAM on 3+ classes
 - Never claim SOTA unless compared on the same split
 
 ---
 
-## 13. Session Log
+## 13. Session Log (legacy — pre-direction-change notes)
 
 | Date | Action | Result |
 |---|---|---|
 | setup | Created folder + AGENT.md + audit.py + train.py + baseline.yaml + README | Done |
-| — | Phase 1 baseline on lab A4000 | PENDING |
 | 2026-09-23 | Repo created + first commit, pushed to GitHub (now `multi-source-skin-disease-fusion`, branch master) | Done |
 | 2026-09-23 | Fixed 3 bugs: `data_root` key fallback in train_resumable.py, `run_id`/absolute `results_dir` in baseline.yaml | Done |
 | 2026-09-23 | Ran `audit.py --check-corrupt` -> `results/audit_starter.json` (1,706/366/367, 0 corrupt, all RGB) | Done |
 | 2026-09-23 | CPU smoke test (2 epochs) on home PC -> test_acc 0.8747, macro_f1 0.8617; artifacts deleted | Done |
 | 2026-09-23 | HF login (as Nirob-jon), public repo `Nirob-jon/cse475-skin-checkpoints` created, upload/download round-trip verified | Done |
-| 2026-09-23 | Deleted unused `src/train.py`; added `docs/FILE_MAP.md`; fixed stale `train.py` refs in AGENT/README/configs/tutorial | Done |
-| — | Phase 1 baseline on lab A4000 | PENDING |
+| 2026-09-23 | Deleted unused `src/train.py`; added `docs/FILE_MAP.md`; fixed stale `train.py` refs | Done |
+| 2026-09-23 | **Phase 1 baseline DONE**: home RX580-DirectML run (resumed from Colab checkpoint), test_acc **0.9564**, macro_f1 0.9485 | Done |
+| 2026-09-23 | Direction change decided: cross-dataset generalization, NOT fusion; plan doc `docs/DEEPSEEK_CONVERSATION_PLAN.md` | Done |
+| 2026-09-23 | `src/harmonize.py` + `results/label_map.csv` (142 rows, verified: 0 missing) | Done |
+| 2026-09-24 | `src/dedupe.py` + `results/dedupe_report_dermnet_sdb.json`: **0 cross-dataset pairs**, 865 DermNet-internal, 157 SDB-internal (dry-run) | Done |
+| 2026-09-24 | `src/eval_cross.py` + `configs/phase2_eval.yaml` + `configs/phase2_dermnet.yaml`; CPU smoke test passed | Done |
+| 2026-09-24 | `src/gradcam_gallery.py` — Grad-CAM image inspection gallery; smoke + phase-1 test-set run (acc 0.9428 with _best.pt) | Done |
+| 2026-09-24 | Fixed phase2_dermnet.yaml data_root (parent dir); created DermNet `validation/` split (8%/class, 1,243 imgs, seed 42) | Done |
+| 2026-09-24 | Committed + pushed Phase 2 pipeline (eval_cross, dedupe, gradcam_gallery, configs, docs) `e3febe4` | Done |
+| — | Phase 2 DermNet 23-class training (RX580 or A4000) | PENDING |
+| — | `src/eval_cross.py` full run → results table | PENDING |
 
 ---
 
-## 11. Portable Training — Checkpoint Sync Protocol
+## 14. Portable Training — Checkpoint Sync Protocol
 
 ### Why this exists
 Bangladesh load shedding, 30 hr/week Kaggle quota, limited lab A4000 time, and a home RX580 with no CUDA all mean one training run must survive across four different machines. Solution: **one checkpoint file, four machines, seamless resume.**
 
 ### The command (same on every machine)
 ```powershell
-py -3.11 src\train_resumable.py --config configs\baseline.yaml --data "<dataset root>" --resume auto
+python src\train_resumable.py --config configs\baseline.yaml --data "<dataset root>" --resume auto
 ```
-The script auto-detects platform and selects the matching profile from `configs/profiles.yaml`.
+Use the activated venv's `python` on each machine (lab `.venv` = CUDA, home `.venv-home` = DirectML, home `.venv-home-cpu` = CPU). The script auto-detects platform and selects the matching profile from `configs/profiles.yaml`.
 
 ### Platform auto-detection
 | Signal | Profile chosen |
@@ -321,16 +333,16 @@ huggingface-cli login   # paste write-scope token
 ```
 Then run with:
 ```powershell
-py -3.11 src\train_resumable.py --config configs\baseline.yaml --data "..." \
+python src\train_resumable.py --config configs\baseline.yaml --data "..." \
   --hub hf --hf-repo Nirob-jon/cse475-skin-checkpoints --resume auto
 ```
 On Kaggle: add `HF_TOKEN` as a notebook Secret.
 On Colab: add `HF_TOKEN` in the left key panel.
 
 ### Sync workflow (per session)
-1. Start: script auto-downloads `phase1_baseline_last.pt` from HF (if `--hub hf --resume auto`).
+1. Start: script auto-downloads `<run>_last.pt` from HF (if `--hub hf --resume auto`).
 2. Train for as long as time/power/quota allows.
-3. End: script uploads the newest `_last.pt` to HF after each epoch.
+3. End: script uploads the newest `_last.pt` (and `_best.pt`) to HF after each epoch.
 4. Next machine: repeat — nothing else to copy.
 
 ### Training recipe by dataset size
@@ -353,10 +365,19 @@ They likely: trained from scratch, used high resolution (384/512/1024px), used a
 
 ---
 
-## 12. Session Log (append one row per work session)
+## 15. Session Log (append one row per work session)
 
 | Date | Machine | What was done | Result |
 |---|---|---|---|
 | setup | — | Project folder created, AGENT.md/README/train.py/audit.py written | Phase 1 not started |
 | — | — | Portable training harness added (train_resumable.py, profiles.yaml, SETUP_HOME.md, this section) | Phase 1 not started |
 | 2026-09-23 | Home | GitHub repo created (`multi-source-skin-disease-fusion`, master), fixes to baseline.yaml + train_resumable.py, audit run, CPU smoke test (test_acc 0.8747 @ 2 ep) | Phase 1 prep done, lab run pending |
+| 2026-09-23 | Colab→Home | **Phase 1 baseline** (efficientnet_b0, 15 ep): started on Colab T4, resumed on home RX580-DirectML, test_acc **0.9564**, macro_f1 0.9485 | Phase 1 DONE; golden rule met |
+| 2026-09-23 | Home | Direction change: documented in `docs/DEEPSEEK_CONVERSATION_PLAN.md` (cross-dataset generalization, not fusion) | Plan finalised |
+| 2026-09-23 | Home | Harmonization: `src/harmonize.py`, `results/label_map.csv` (142 rows, 0 missing) | Done |
+| 2026-09-24 | Home | Dedupe: `src/dedupe.py` → report with 0 cross-dataset pairs (no leakage), 865 DermNet / 157 SDB internal | Done |
+| 2026-09-24 | Home | Phase 2 eval pipeline: `src/eval_cross.py` (5 test sets, CPU smoke-tested), `configs/phase2_dermnet.yaml`, `configs/phase2_eval.yaml` | Done |
+| 2026-09-24 | Home | Grad-CAM gallery tool `src/gradcam_gallery.py`; run on phase-1 test split (367 img, acc 0.9428 @ _best.pt) → browseable HTML | Done |
+| 2026-09-24 | Home | Prepared DermNet for training: fixed `data_root` (parent dir), created `validation/` split (1,243 imgs, 8%/class, seed 42) | Done |
+| 2026-09-24 | Home | Committed + pushed Phase 2 pipeline `e3febe4`; updated all Markdown docs | Done |
+| — | — | Phase 2 DermNet 23-class training → `results/phase2_dermnet_best.pt` | PENDING |

@@ -2,8 +2,8 @@
 
 > Audience: opencode (the coding agent).
 > Purpose: Single handoff. What changed, what was decided, what code to write.
-> Date: 2026-09-23
-> Status: Phase 1 done. Phase 2 plan finalised. Phase 2 code NOT written.
+> Date: 2026-09-23 (updated 2026-09-24)
+> Status: Phase 1 done. Phase 2 plan finalised. **Phase 2 code WRITTEN and smoke-tested** (harmonize, dedupe, eval_cross, configs, gradcam_gallery). DermNet validation split ready. Pending: DermNet training + eval_cross full run.
 
 ---
 
@@ -213,10 +213,13 @@ Critical: run BEFORE any cross-dataset evaluation. If the same photo appears in 
 
 Load ONE trained checkpoint, evaluate on N test sets, dump one JSON.
 
+**DESIGN DECISION (locked 2026-09-24):** use the model's **raw 23-class argmax, then map the predicted class → unified** via `results/label_map.csv`. Do NOT use max-logit reduction — it is degenerate when a test set has a single unified class (e.g. the phase-1 acne+rosacea→acne row). `label_map.csv` is keyed by (source_dataset, source_class) → unified_class.
+
 Inputs:
 
 - --checkpoint results/phase2_dermnet_best.pt
 - --config configs/phase2_eval.yaml
+- --device auto|dml|cpu
 
 configs/phase2_eval.yaml sketch:
 
@@ -279,7 +282,7 @@ Images_176x176_v1.zip contains pre-augmented images (aug_ prefix) - the same pho
 DO:
 
 - Read docs/FILE_MAP.md and AGENT.md first.
-- Use py -3.11 for all Python (default python is 3.14.5, no torch wheels).
+- Use the activated venv's python: home `.venv-home` (DirectML) / `.venv-home-cpu` (CPU), lab `.venv` (CUDA). The global `python` (3.14.5) and `py -3.11` have no torch wheels.
 - Keep src/train_resumable.py as the ONLY trainer. Do not re-add src/train.py.
 - Save every run as JSON in results/ with the schema in AGENT.md section 10.
 - Pin seed 42 in every training and evaluation run.
@@ -297,15 +300,18 @@ DO NOT:
 
 ---
 
-## 8. WHAT TO DO RIGHT NOW (first three steps)
+## 8. WHAT TO DO RIGHT NOW (first three steps) — DONE 2026-09-24
 
-For opencode, in order:
+1. Extract SkinDiseaseBD (`Raw_Images.zip` only) → `data/SkinDiseaseBD/Updated Images` — DONE (1,612 imgs, 5 classes: Dermatitis 302 · Eczema 381 · Scabies 301 · Tinea 316 · Vitiligo 312).
+2. `src/harmonize.py` → `results/label_map.csv` (142 rows, 0 missing) — DONE.
+3. `src/dedupe.py` → `results/dedupe_report_dermnet_sdb.json`: **0 cross-dataset pairs** (no leakage), 865 DermNet-internal, 157 SkinDiseaseBD-internal. — DONE.
 
-1. Run the SkinDiseaseBD extraction command from section 6.5, then
-   py -3.11 src\audit.py --data "F:/cse475_skin/data/SkinDiseaseBD_raw"
-   and report the 5 class names + image counts.
-2. Write src/harmonize.py per section 6.1. Do NOT write dedupe.py yet - do harmonize first so the mapping is verified before anything depends on it.
-3. Report back. Do not proceed to dedupe.py or eval_cross.py until the label map is confirmed against real folder names.
+Also done: `src/eval_cross.py` + `configs/phase2_eval.yaml` + `configs/phase2_dermnet.yaml` (CPU smoke test passed), and the DermNet `validation/` split (1,243 imgs, 8%/class, seed 42).
+
+NEXT (in order):
+1. Train DermNet 23-class: `.\.venv-home\Scripts\python.exe src\train_resumable.py --config configs\phase2_dermnet.yaml --profile home_rx580_dml --resume auto`
+2. Evaluate: `.\.venv-home\Scripts\python.exe src\eval_cross.py --checkpoint results\phase2_dermnet_best.pt --config configs\phase2_eval.yaml`
+3. Write Kaggle/Colab phase-2 notebooks mirroring the phase-1 pattern.
 
 ---
 
