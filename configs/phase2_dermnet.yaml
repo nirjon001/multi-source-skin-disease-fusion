@@ -1,0 +1,21 @@
+# Phase 2 — DermNet 23-class training config (cross-dataset generalization)
+# TRAIN on DermNet 23 classes. TEST later on 4-5 external sets via eval_cross.py.
+# Base recipe mirrored from configs/baseline.yaml (DO NOT touch that file).
+
+run_id: phase2_dermnet
+dataset_name: dermnet_23
+data_root: F:/Downloads/Kaggle-skin-disease-different-catergory dataset/train
+
+model: efficientnet_b0
+epochs: 15
+batch_size: 32
+img_size: 224
+lr: 0.001
+weight_decay: 0.0001
+seed: 42
+num_workers: 4
+
+results_dir: F:/cse475_skin/results
+logs_dir: F:/cse475_skin/logs
+
+# num_classes is auto-derived from data_root folder count (23 for DermNet).

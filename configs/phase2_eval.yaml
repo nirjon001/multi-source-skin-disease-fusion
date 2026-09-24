@@ -1,0 +1,52 @@
+# Phase 2 — cross-dataset evaluation config (consumed by src/eval_cross.py)
+# One trained model (phase2_dermnet), evaluated on 4-5 external test sets.
+
+run_id: phase2_dermnet
+out: results/phase2_dermnet_eval.json
+
+model: efficientnet_b0
+num_classes: 23
+image_size: 224
+batch_size: 32
+
+label_map: results/label_map.csv
+
+# Needed to reconstruct ImageFolder class order == model output order.
+dermnet_train_root: F:/Downloads/Kaggle-skin-disease-different-catergory dataset/train
+
+test_sets:
+
+  # 1) In-domain upper bound: DermNet's own held-out test split (23 classes)
+  - name: dermnet_test
+    mode: folder_per_class
+    root: F:/Downloads/Kaggle-skin-disease-different-catergory dataset/test
+    source_dataset: dermnet
+    folders: auto            # all 23 folder names used
+
+  # 2) CROSS-DATASET DOMAIN SHIFT (paper headline) — SkinDiseaseBD 5 classes
+  - name: skindiseasebd
+    mode: folder_per_class
+    root: F:/cse475_skin/data/SkinDiseaseBD/Updated Images
+    source_dataset: skindiseasebd
+    folders: [Eczema, Scabies, Tinea Ringworm, Dermatitis, Vitiligo]
+
+  # 3) Cross-dataset + dark skin — Fitzpatrick17k black subset (3 classes)
+  - name: fitzpatrick_black
+    mode: folder_per_class
+    root: F:/Downloads/fitzpatrick-black-images-dataset/fitzpatrick-black-images
+    source_dataset: fitzpatrick_black
+    folders: [acne, acne_vulgaris, eczema, dyshidrotic_eczema, allergic_contact_dermatitis]
+
+  # 4) Phase 1 hold-out images (acne/normal/rosacea) as an extra generalization row.
+  #    acne+rosacea both fold into unified "acne" (no DermNet "normal" class).
+  - name: skin_disease_images
+    mode: folder_per_class
+    root: F:/Downloads/skin_disease_images/test
+    inline_map: {acne: acne, rosacea: acne}
+    folders: [acne, rosacea]
+
+  # 5) BIAS PROBE (no per-image labels) — DDI Black vs White predicted-class gap
+  - name: ddi_bias
+    mode: subfolder_binary
+    root: F:/Downloads/skin-disease-dataset/Disease-Dataset
+    groups: [Black, White]
