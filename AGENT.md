@@ -98,7 +98,7 @@ All under `F:\Downloads\` unless noted.
 | # | Dataset | Path | Classes | Images | State |
 |---|---|---|---|---|---|
 | 1 | **Starter: acne/rosacea/normal** | `F:\Downloads\skin_disease_images\` | acne, normal, rosacea | 2,439 | Phase 1 trained/evaluated |
-| 2 | **DermNet 23 (Phase 2 TRAIN + test)** | `F:\Downloads\Kaggle-skin-disease-different-catergory dataset\` | 23 | train 14,314 / val 1,243 / test 4,002 | **Phase 2 training set** |
+| 2 | **DermNet 23 (Phase 2 TRAIN + test)** | `F:\Downloads\Kaggle-skin-disease-different-catergory dataset\` | 23 | train 14,314 / val 1,120 / test 4,002 (val dedupe-clean) | **Phase 2 training set** |
 | 3 | SkinDiseaseBD | `F:\cse475_skin\data\SkinDiseaseBD\Updated Images\` | 5 (Dermatitis, Eczema, Scabies, Tinea, Vitiligo) | 1,612 | Extracted — **external test #2** |
 | 4 | Fitzpatrick17k black-images | `F:\Downloads\fitzpatrick-black-images-dataset\fitzpatrick-black-images\` | ~114 | ~2,000 | External test #3 (3 unified) |
 | 5 | DDI (Black/White) | `F:\Downloads\skin-disease-dataset\Disease-Dataset\` | binary st | Black 2,155 / White 2,000 | Bias probe only — **no disease labels** |
@@ -172,10 +172,11 @@ F:\cse475_skin\
 - [x] `src/harmonize.py` → `results/label_map.csv` (142 rows, DermNet+SkinDiseaseBD+Fitzpatrick+phase1)
 - [x] `src/dedupe.py` → `results/dedupe_report_dermnet_sdb.json`: **0 cross-dataset pairs** (no leakage), 865 DermNet-internal, 157 SkinDiseaseBD-internal
 - [x] `src/eval_cross.py` written + CPU smoke-tested (skindiseasebd n=1612, skin_disease_images n=264, ddi Black 2155/White 2000)
-- [x] `configs/phase2_dermnet.yaml` + `configs/phase2_eval.yaml` written; DermNet validation split created (1,243 imgs)
-- [ ] Train DermNet 23-class → `results/phase2_dermnet_best.pt`
+- [x] `configs/phase2_dermnet.yaml` + `configs/phase2_eval.yaml` written; DermNet validation split created, dedupe-clean (train 14,314 / validation 1,120 / test 4,002)
+- [x] Prepared split uploaded to HF (`Nirob-jon/cse475-dermnet-split`) + `notebooks/kaggle_phase2.ipynb` written; local checkpoints backed up to `results/backup_phase2_local/`
+- [ ] Train DermNet 23-class on **Kaggle T4** (*notebooks/kaggle_phase2.ipynb*) → `results/phase2_dermnet_best.pt` (HF-synced every epoch)
 - [ ] Run `src/eval_cross.py` → the results table
-- [ ] Grad-CAM / inspection gallery (`src/gradcam_gallery.py`) on all phase-1 splits (test done)
+- [ ] Grad-CAM / inspection gallery (`src/gradcam_gallery.py`) on all phase-1 splits (test done; full 2,439 done)
 
 ### Phase 3 — Write paper (Week 6)
 - [ ] IEEE template, 6-8 pages
@@ -273,7 +274,8 @@ Every `results/*.json` (trainer output) must contain:
 | 2026-09-24 | `src/gradcam_gallery.py` — Grad-CAM image inspection gallery; smoke + phase-1 test-set run (acc 0.9428 with _best.pt) | Done |
 | 2026-09-24 | Fixed phase2_dermnet.yaml data_root (parent dir); created DermNet `validation/` split; removed 124 DermNet-internal dups so train↔val is CLEAN (0 cross-split pairs) | Done |
 | 2026-09-24 | Committed + pushed Phase 2 pipeline (eval_cross, dedupe, gradcam_gallery, configs, docs) `e3febe4` | Done |
-| — | Phase 2 DermNet 23-class training (RX580 or A4000) | PENDING |
+| 2026-09-24 | **Switched training to Kaggle T4.** Uploaded prepared DermNet split (19,436 imgs, 1.71 GB) as HF dataset `Nirob-jon/cse475-dermnet-split`; wrote `notebooks/kaggle_phase2.ipynb` (batch 32, AMP on); moved local phase-2 checkpoints to `results/backup_phase2_local/` for a clean fresh run | Done |
+| — | Phase 2 DermNet 23-class training (Kaggle T4 notebook) | PENDING |
 | — | `src/eval_cross.py` full run → results table | PENDING |
 
 ---

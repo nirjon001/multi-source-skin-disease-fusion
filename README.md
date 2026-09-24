@@ -148,8 +148,14 @@ No meaningful drift. Save model + optimizer + scheduler + RNG; keep batch size i
 
 ## Phase 2 command (the active goal)
 
+**Primary path (2026-09-24): Kaggle T4 notebook** — `notebooks/kaggle_phase2.ipynb` trains the DermNet 23-class model
+(batch 32, AMP on, ~1.5-4 min/epoch → full 15 epochs in ~30-90 min). The prepared split (train 14,314 / validation 1,120 /
+test 4,002) is on HF as `Nirob-jon/cse475-dermnet-split` (`DermNetPrepared.zip`). Checkpoints sync to HF every epoch.
+
+Local home fallback (RX580, DirectML, ~19 min/epoch — no AMP on DirectML):
+
 ```powershell
-.\.venv-home\Scripts\python.exe src\train_resumable.py --config configs\phase2_dermnet.yaml --profile home_rx580_dml --resume auto
+.\.venv-home\Scripts\python.exe src\train_resumable.py --config configs\phase2_dermnet.yaml --profile home_rx580_dml --hub hf --resume auto
 ```
 
 Then evaluate the trained model on all 5 test sets:
@@ -160,3 +166,4 @@ Then evaluate the trained model on all 5 test sets:
 
 Success = `results/phase2_dermnet_best.pt` exists, then a per-dataset eval JSON under `results/`.
 Success for Phase 1: `results/phase1_baseline.json` contains a numeric `test_acc` (it does — 0.9564).
+Kaggle run: use `notebooks/kaggle_phase2.ipynb` (HF login via `HF_TOKEN` secret, auto-internet); the run is resumable from the same HF repo.

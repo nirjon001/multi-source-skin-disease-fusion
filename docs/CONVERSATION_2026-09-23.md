@@ -133,8 +133,23 @@ One more blocker: `yaml.parser.ParserError: expected '<document start>' ... line
 - Committed + pushed `e3febe4` "Add Phase 2 cross-dataset eval pipeline" (7 files).
 - Updated all Markdown docs (AGENT.md, README.md, SETUP_HOME.md, FILE_MAP.md, DEEPSEEK_CONVERSATION_PLAN.md, this file).
 
+## 8. Session 2026-09-24 (evening) — Dedupe cleanup + switch training to Kaggle T4
+
+**Prep on the DermNet split (before training):**
+- Re-ran `dedupe.py` over `train;validation` → found **120 train↔validation near-dups (98 pixel-identical)**. Root cause: DermNet ships the *same photo in multiple class folders* (e.g. `Acne…/acne-cystic-2.jpg ≡ Eczema…/eczema-hand-16.jpg`), so the 8% holdout landed copies on both sides of the split.
+- **Fixed:** removed the 124 validation-side copies (train kept intact) → re-dedupe: **741 DermNet-internal pairs, 0 train↔validation cross-split pairs = CLEAN**. Final split: **train 14,314 / validation 1,120 / test 4,002**.
+- Verified SkinDiseaseBD label CSV + provenance disclosure (section 7).
+
+**Training direction change (user decision):**
+- Local RX580 epochs were ~18-19 min on 14,314 images (batch 16, DirectML, no AMP). Root cause investigation: `use_amp = amp && str(device).startswith("cuda")` (`train_resumable.py:399`) — AMP requires CUDA; DirectML device is `privateuseone:0`, so AMP cannot run on the home GPU. (My earlier "~2× with AMP" suggestion was wrong.)
+- Full 15 epochs at home = ~4.5-5 hr. **User chose to switch to Kaggle T4** where `kaggle_t4` profile (cuda, batch 32, AMP on) gives ~1.5-4 min/epoch → full run ~30-90 min.
+- Prepared split (19,436 imgs, 1.71 GB) zipped → uploaded to HF dataset `Nirob-jon/cse475-dermnet-split` (`DermNetPrepared.zip`, commit 850fcd6). Old local phase-2 checkpoints moved to `results/backup_phase2_local/` (NOT deleted).
+- Wrote `notebooks/kaggle_phase2.ipynb` (8 cells: HF login → clone harness → snapshot_download zip→extract → pip → data sanity → TRAIN `--profile kaggle_t4 --hub hf --resume auto --data $DATA --epochs 15` → results note).
+
+**What changed vs earlier numbers:** validation split is now 1,120 (dedupe-clean), not 1,243; the trainer reads split counts dynamically so everything still resolves. HF checkpoints repo has no phase2 files yet → Kaggle run starts from scratch.
+
 **Pending (next session):**
-1. Train DermNet 23-class: `.\.venv-home\Scripts\python.exe src\train_resumable.py --config configs\phase2_dermnet.yaml --profile home_rx580_dml --resume auto` (~2-2.5 hr RX580; resume-safe + HF sync).
-2. Run `src/eval_cross.py --checkpoint results/phase2_dermnet_best.pt --config configs/phase2_eval.yaml` → results table.
-3. Full gallery over phase-1 train+validation+test on CPU while training runs on GPU.
-4. Phase-2 Kaggle/Colab notebooks (cloud dataset slugs TBD — DDI is Stanford-gated).
+1. User imports `notebooks/kaggle_phase2.ipynb` on Kaggle, adds `HF_TOKEN` secret, runs all (~30-90 min; resumable).
+2. After training: `src/eval_cross.py --checkpoint results/phase2_dermnet_best.pt --config configs/phase2_eval.yaml` → results table (best.pt downloaded from HF or already pushed there).
+3. Full phase-1 gallery (`results/gallery_phase1_all/gallery.html`, 2,439 imgs) — DONE at 5:47 PM; mark-audit of test/val wrongs optional (43 `normal→acne` incl. 16 test).
+4. Phase-2 Colab/kaggle eval notebook + cloud dataset slugs (still TBD).

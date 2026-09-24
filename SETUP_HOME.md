@@ -92,12 +92,12 @@ The script auto-detects the home PC and picks `home_rx580_dml`. To force CPU:
 
 ## 6. Expected Timing (EfficientNet-B0, 224px, 15 epochs)
 
-| Dataset size    | A4000 + AMP | RX580 DirectML   | RX580 CPU             |
-| --------------- | ----------- | ---------------- | --------------------- |
-| 2,439 (starter) | ~6 min      | ~1 hr            | ~3 hr                 |
-| 5,000           | ~15 min     | ~2 hr            | ~6 hr                 |
-| 10,000          | ~25 min     | ~4 hr (2 nights) | ~12 hr (overnight x2) |
-| 15,557 (DermNet, Phase 2) | ~1 hr | ~2.5-3 hr | ~18+ hr (overnight x2-3) |
+| Dataset size    | A4000 + AMP | Kaggle T4 + AMP | RX580 DirectML | RX580 CPU |
+| --------------- | ----------- | --------------- | -------------- | --------- |
+| 2,439 (starter) | ~6 min      | ~6 min          | ~1 hr          | ~3 hr     |
+| 15,557 (DermNet, Phase 2) | ~1 hr | ~30-90 min (1.5-4 min/epoch) | ~4.5-5 hr (19 min/epoch, no AMP on DirectML) | ~18+ hr |
+
+> **2026-09-24:** Phase 2 DermNet training runs on **Kaggle T4** (`notebooks/kaggle_phase2.ipynb`). DirectML on RX580 has **no AMP** (`use_amp` gated on `cuda`), so home-GPU epochs are ~19 min each — the Kaggle path is 3-6× faster. Home remains the fallback / checkpoint-resume target.
 
 ---
 

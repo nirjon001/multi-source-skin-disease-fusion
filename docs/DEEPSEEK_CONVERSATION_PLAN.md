@@ -302,17 +302,17 @@ DO NOT:
 
 ## 8. WHAT TO DO RIGHT NOW (first three steps) — DONE 2026-09-24
 
-1. Extract SkinDiseaseBD (`Raw_Images.zip` only) → `data/SkinDiseaseBD/Updated Images` — DONE (1,612 imgs, 5 classes: Dermatitis 302 · Eczema 381 · Scabies 301 · Tinea 316 · Vitiligo 312).
+1. Extract SkinDiseaseBD → `data/SkinDiseaseBD/Updated Images` (1,612 imgs, 5 classes: Dermatitis 302 · Eczema 381 · Scabies 301 · Tinea 316 · Vitiligo 312). NOTE: source is the `Images_512x512_v2.zip\Updated Images\<class>\` split; `aug_N` prefix = class index, NOT augmentation; `Raw_Images.zip` (flat unlabeled `ResearchImage\*.jpg`, 197 files) is unusable. — DONE.
 2. `src/harmonize.py` → `results/label_map.csv` (142 rows, 0 missing) — DONE.
 3. `src/dedupe.py` → `results/dedupe_report_dermnet_sdb.json`: **0 cross-dataset pairs** (no leakage), 865 DermNet-internal, 157 SkinDiseaseBD-internal. — DONE.
 
 Also done: `src/eval_cross.py` + `configs/phase2_eval.yaml` + `configs/phase2_dermnet.yaml` (CPU smoke test passed), and the DermNet `validation/` split (1,120 imgs after removing 124 DermNet-internal exact dups that straddled train↔val — re-dedupe confirms **0 cross-split pairs**).
 
-NEXT (in order):
+NEXT (in order) — **2026-09-24 update: training switched to Kaggle T4**:
 
-1. Train DermNet 23-class: `.\.venv-home\Scripts\python.exe src\train_resumable.py --config configs\phase2_dermnet.yaml --profile home_rx580_dml --resume auto`
+1. Train DermNet 23-class on **Kaggle** via `notebooks/kaggle_phase2.ipynb` (T4, batch 32, AMP on, ~30-90 min; resumable via HF). Prepared split is on HF as `Nirob-jon/cse475-dermnet-split`. Home fallback (slower, DirectML no AMP): `.\.venv-home\Scripts\python.exe src\train_resumable.py --config configs\phase2_dermnet.yaml --profile home_rx580_dml --hub hf --resume auto`
 2. Evaluate: `.\.venv-home\Scripts\python.exe src\eval_cross.py --checkpoint results\phase2_dermnet_best.pt --config configs\phase2_eval.yaml`
-3. Write Kaggle/Colab phase-2 notebooks mirroring the phase-1 pattern.
+3. Phase-2 Colab/kaggle *eval* notebook (cloud dataset slugs TBD).
 
 ---
 
